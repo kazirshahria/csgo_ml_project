@@ -8,7 +8,7 @@ data = json.load(file)
 driver = make_driver()
 
 count = 0
-for year in data.keys():
+for year in [2023, 2024]:
     scraped_lis = []
     urls = data[year]
     for url in tqdm(urls):
