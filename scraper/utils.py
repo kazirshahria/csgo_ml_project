@@ -10,7 +10,7 @@ from selenium.common.exceptions import NoSuchElementException
 
 def make_driver():
     options = Options()
-    options.add_argument("--headless")
+    # options.add_argument("--headless")
     driver = Firefox(options=options)
     return driver
 
@@ -64,16 +64,20 @@ def mapExtract(tags: selenium):
 
 def deatiledStats(urls: list):
     statlinks = []
+    driver = make_driver()
+    counter = 0
     for url in tqdm(urls):
-        driver = make_driver()
         driver.get(url)
-        # time.sleep(1.0)
         try:
             detailedStats = driver.find_element(By.LINK_TEXT, "Detailed stats").get_attribute("href")
             statlinks.append(detailedStats)
         except NoSuchElementException:
             pass
-        driver.quit()
+        counter += 1
+        if counter == 100:
+            driver.quit()
+            counter = 0
+            driver = make_driver()
     return statlinks
 
 def hltvmatchDetails(driver: selenium, matches: list):
@@ -138,7 +142,7 @@ def hltvplayerData(driver: selenium, url: str):
 
 def hltvplayerStats(driver: selenium, url: str):
     driver.get(url)
-    time.sleep(1.5)
+    time.sleep(1.0)
 
     # Extract event and date info from the match info box
     gameInfo = driver.find_element(By.CSS_SELECTOR, "div[class='match-info-box']")
@@ -150,7 +154,7 @@ def hltvplayerStats(driver: selenium, url: str):
 
     players_data = []  # This will store all player data
 
-    def process_map(mapName, statTables):
+    def process_map(mapName, statTables, map_num):
         # Iterate over both teams (team 0 and team 1)
         for t, o in [(0, 1), (1, 0)]:
             teammates = [row.find_element(By.CSS_SELECTOR, "td.st-player a").text for row in statTables[t].find_elements(By.CSS_SELECTOR, "tbody tr")]
@@ -159,12 +163,27 @@ def hltvplayerStats(driver: selenium, url: str):
             # Team name
             team_name = statTables[t].find_element(By.CSS_SELECTOR, ".st-teamname.text-ellipsis").text
 
+            # Get both teams and their scores
+            gameInfo = driver.find_element(By.CSS_SELECTOR, "div[class='match-info-box']")
+            left_team_name = gameInfo.find_element(By.CSS_SELECTOR, "div.team-left a").text.strip()
+            left_team_score = int(gameInfo.find_element(By.CSS_SELECTOR, "div.team-left div.bold").text.strip())
+            right_team_score = int(gameInfo.find_element(By.CSS_SELECTOR, "div.team-right div.bold").text.strip())
+
             # Process each player in the team's stats table
             for row in statTables[t].find_elements(By.CSS_SELECTOR, "tbody tr"):
+                # Assign the correct scores based on team name
+                if team_name == left_team_name:
+                    team_score = left_team_score
+                    opp_score = right_team_score
+                else:
+                    team_score = right_team_score
+                    opp_score = left_team_score
+
                 player = {
                     "Event": event,
                     "Date": date,
                     "Map": mapName,
+                    "Map Number": map_num,
                     "Team": team_name,
                     "Name": row.find_element(By.CSS_SELECTOR, "td.st-player a").text,
                     "Kills": row.find_element(By.CSS_SELECTOR, "td.st-kills").text.split(' ')[0],
@@ -176,12 +195,16 @@ def hltvplayerStats(driver: selenium, url: str):
                     "ADR": row.find_elements(By.TAG_NAME, "td")[6].text,
                     "FK Diff": row.find_elements(By.TAG_NAME, "td")[7].text,
                     "Rating": row.find_elements(By.TAG_NAME, "td")[8].text,
+                    "Team Score": team_score,
+                    "Opponent Score": opp_score
                 }
 
                 # Append teammates (excluding the player himself/herself)
-                for idx, teammate in enumerate(teammates):
+                idx = 0
+                for teammate in teammates:
                     if teammate != player['Name']:
                         player[f"Teammate {idx + 1}"] = teammate
+                        idx += 1
 
                 # Append opponents
                 for idx, opponent in enumerate(opponents):
@@ -194,15 +217,15 @@ def hltvplayerStats(driver: selenium, url: str):
     if len(individualMaps) == 0:
         mapName = gameInfo.text.split("Map")[1].strip().split("\n")[0]
         statTables = driver.find_elements(By.CSS_SELECTOR, "table[class='stats-table totalstats ']")
-        process_map(mapName, statTables)
+        process_map(mapName, statTables, "Single Map")
     # Process case for multiple maps
     else:
-        for map_url in individualMaps:
+        for map_num, map_url in enumerate(individualMaps):
             driver.get(map_url)
-            time.sleep(1.5)
+            time.sleep(1.0)
             # Get the map name and the stat tables
             mapInfo = driver.find_element(By.CSS_SELECTOR, "a[class='col stats-match-map standard-box a-reset']")
             mapName = mapInfo.find_element(By.CSS_SELECTOR, "div[class='stats-match-map-result-mapname dynamic-map-name-full']").text.strip()
             statTables = driver.find_elements(By.CSS_SELECTOR, "table[class='stats-table totalstats ']")
-            process_map(mapName, statTables)
+            process_map(mapName, statTables, map_num+1)
     return players_data
