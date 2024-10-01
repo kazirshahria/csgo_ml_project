@@ -1,6 +1,6 @@
 from utils import *
 import pandas as pd
-import json, random
+import json
 
 # Import URLs
 file = open("./player_stats/all_stats.json")
@@ -12,7 +12,12 @@ for year in ["2023", "2024"]:
     scraped_lis = []
     urls = data[year]
     for url in tqdm(urls):
-        scraped_data = hltvplayerStats(driver, url)
+        try:
+            scraped_data = hltvplayerStats(driver, url)
+        except:
+            driver.close()
+            driver = make_driver()
+            continue
         scraped_lis.extend(scraped_data)
         count += 4
         # Avoid Memory Leak
