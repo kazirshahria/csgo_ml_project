@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# hltv_m1
-Build a scraper and train machine learning models for Esport games.
-=======
 # CS:GO ML Project 🕹️
 
 **Goal**: Predict a player's headshot and kill count in the game CS:GO with machine learning, specifally with regression models.
@@ -31,4 +27,3 @@ The R2 scores are moderate indicating a decent fit. When backtracking the result
 I cannot disclose anymore on this project, but the code and modeling can be found in this repository. Feel free to also contact me using the link below.
 
 [Linkedin](https://www.linkedin.com/in/kazishahria/)
->>>>>>> 2451f1c (Updated README.md with project information)
