@@ -32,8 +32,8 @@ def database_connection_and_cursor(database: str=None) -> tuple:
 def insert_prizepicks_lines_into_database(connection, cursor, data):
     # SQL insert query
     insert_query = """
-    INSERT IGNORE INTO prizepicks_lines (id, game_date, game_time, stat_type, player_name, player_team, opp, line_score)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+    INSERT IGNORE INTO prizepicks_lines (id, game_date, game_time, stat_type, player_name, player_team, opp, line_score, player_id, team_id)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
     # Insert the records into the database
     cursor.executemany(insert_query, data)
@@ -56,15 +56,22 @@ def prizepicks_lines(league_id: str="265", insert_into_db: bool=False) -> list:
     # Append to the player list
     player_maps = {}
     # Get the player names
-    for player in res["included"]:
+    try:
+        players = res["included"]
+    except KeyError:
+        return False
+    for player in players:
         if player["type"]=="new_player":
             id = player["id"]
             name = player["attributes"]["display_name"].strip()
             team = player["attributes"]["team"].strip()
+            team_id = player["relationships"]["team_data"]["data"]["id"].strip()
             if id not in player_maps.keys():
                 player_maps[id] = {
                     "Name": name,
-                    "Team": team
+                    "Team": team,
+                    "Player ID": id,
+                    "Team ID": team_id
                 }
     all_lines = []
     all_lines_db = []
@@ -79,6 +86,8 @@ def prizepicks_lines(league_id: str="265", insert_into_db: bool=False) -> list:
         player_info = player_maps[player_id]
         name = player_info["Name"]
         team = player_info["Team"]
+        player_id = player_info["Player ID"]
+        team_id = player_info["Team ID"]
         data = {
             "ID": line_id,
             "Game Date": date.date(),
@@ -87,7 +96,9 @@ def prizepicks_lines(league_id: str="265", insert_into_db: bool=False) -> list:
             "Name": name.strip(),
             "Team": team.strip(),
             "Opp": opp.strip(),
-            "Line Score": line_score
+            "Line Score": line_score,
+            "Player ID": player_id,
+            "Team ID": team_id,
         }
         all_lines.append(data)
         all_lines_db.append(tuple(data.values()))
@@ -105,3 +116,4 @@ def lambda_handler():
             'body': json.dumps('Scraped lines from Prizepicks and updated the database!')
         }
 
+lambda_handler()
